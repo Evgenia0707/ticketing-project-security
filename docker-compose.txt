@@ -1,0 +1,68 @@
+#app depend on postgres (depends_on: - mypostgres) for run first
+#using docker-compose don't need put all info again (write once), save time
+#first need version docker compose file
+
+version: "3.7"
+
+#have 2 services - postgres , ticketing-app
+
+#need define service = app (give serv name, app name, ) create image for postgres(official image)
+#give name for container mypostgres
+#difain credential (environment: for ready image)
+#for put image in container - container = (any name)
+#define ports - (- = list, can define more than 1 port) can open container more than 1 port
+#restart - run always, if som-q happened - run again, and again
+#volume - store persistence data inside volume - give name under network - use for postgres image
+#if delete container - volume never delete(will stay)
+
+services:
+mypostgres:
+image: postgres
+container_name: mypostgres
+environment:
+POSTGRES_USER: "postgres"
+POSTGRES_PASSWORD: ${postgres_db_pw}
+POSTGRES_DB: "ticketing-app"
+
+#open to word - create port
+
+ports:
+- "5432:5432"
+restart: always
+
+#nor lost data - put inside volumes
+
+#inside we have this folder - copy/past volume(data) to initdb(under docker file- postgres- later - inside) for not lost data - store persistence data
+
+volumes:
+- initdb:/var/lib/postgresql/data
+networks:
+- webnet
+
+#second service - ticketing-app
+
+#use my own image - build from docker composite file - create and push(under same folder (.) root folder
+#need create image from Dockerfile - go and build -> put image inside container - give name(ticketingapp)
+#defaine port - they will know its my app
+#network - give name
+#  depends_on: - mypostgres -> need run first
+
+ticketing-app:
+build: .
+container_name: ticketingapp
+ports:
+- "8080:8080"
+networks:
+- webnet
+depends_on:
+- mypostgres
+
+#how they (app) will speak which other (name random) can find service under this network
+#name , network(key = driver) = bridge
+
+networks:
+webnet:
+driver: bridge
+#store persistent data - use volums (any name)
+volumes:
+initdb:
