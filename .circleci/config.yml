@@ -1,59 +1,45 @@
 version: 2
 jobs:
-  #first job - steps
   build:
     docker:
       # specify the version you desire here
       - image: circleci/openjdk:11-jdk
-        #define directory (or create auto)
     working_directory: /tmp/workspace
     steps:
-# find my code in gitHub
       - checkout
-      - #create directory (use folder /tmp/workspace -> under parent folder -> -p)
       - run: mkdir -p /tmp/workspace
-      # Download and cache dependencies (faster process - take from backup)
+      # Download and cache dependencies
       - restore_cache:
           keys:
             - v1-dependencies-{{ checksum "pom.xml" }}
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
-#circleCi will build , compile code
+
       - run: mvn clean install -DskipTests
       - save_cache:
-          #wher to store cache -> work first (before restore) copy  "pom.xml" - store
           paths:
             - ~/.m2
           key: v1-dependencies-{{ checksum "pom.xml" }}
-#  define my root folder - create all folder under this structure
       - persist_to_workspace:
           root: /tmp/workspace
           paths: .
-#          my app compile and running - 1 job - done
-#  now creat image - deployd to cloud ECR (machine: true)
   docker-image-and-publish:
     machine: true
-# give command - attach - run under this
     steps:
       - attach_workspace:
           at: /tmp/workspace
       - run: ls -a /tmp/workspace
-#name will see -> command - wich service to snd
       - run:
           name: Create Docker image and push to ECR
-#past 1 commend from ECR && 2 commend (del (.) + /tmp/workspace)  && 3 commend && 4 commend
           command: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 717554914399.dkr.ecr.us-east-1.amazonaws.com && docker build -t ticketingapp /tmp/workspace && docker tag ticketingapp:latest 717554914399.dkr.ecr.us-east-1.amazonaws.com/ticketingapp:latest && docker push 717554914399.dkr.ecr.us-east-1.amazonaws.com/ticketingapp:latest
   deploy-job:
-#    we created image(1 job), pushed ECR(2 job) now - deploy EC2 (need delete previous containers - memory)
     docker:
- #specify the version you desire here
+      #specify the version you desire here
       - image: circleci/node:10.0.0
     steps:
       - run:
           name: Execute Deployment Script
           command: |
-# copy from aws - instance- proj - commect to instance copy  ssh ->  ec2-user@ec2-54-167-212-174.compute-1.amazonaws.com
-#                     pull all commend under ENDSSH -> when call -> deploy_image.sh -> will run
             ssh -o "StrictHostKeyChecking=no" ec2-user@ec2-54-167-212-174.compute-1.amazonaws.com <<'ENDSSH'
             /bin/bash bin/deploy_image.sh
             docker ps
@@ -63,7 +49,6 @@ workflows:
     jobs:
       - build
       - docker-image-and-publish:
-          # before docker-image-and-publish done don' exrcute
           requires:
             - build
       - deploy-job:
